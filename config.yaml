@@ -1,0 +1,19 @@
+# sheet_id: "1hjPUiHljG647ZYDVmYLNdil0DL3dio5TdQNtaVr1dz8"
+# sheet_range: "Sheet1!A2:Q"
+# upload_to_google_folder_id: "1Jgb9Egm-xKuU_rPXhKR1bT_jbEW_SvnF"  # Optional, only if using folder-based downloading
+# download_from_google_folder_id: "1xiMxx5E7yoDKIwRIvSvHMjII2nyaKlMi"  # Folder ID in Shared Drive for uploads
+# download_from_google_folder_id: "1mZ-cKtj-0gmj1g_h0WPGzFU318DrxpF6"  # Folder ID in Shared Drive for uploads
+output_width: 1080
+output_height: 1920
+font_size: 80
+
+
+# sheet_id: "1hjPUiHljG647ZYDVmYLNdil0DL3dio5TdQNtaVr1dz8"
+# sheet_range: "Sheet1!A2:H"
+# drive_folder_id: "1xiMxx5E7yoDKIwRIvSvHMjII2nyaKlMi"
+# output_width: 1080
+# output_height: 1920
+# font_size: 80
+
+
+
