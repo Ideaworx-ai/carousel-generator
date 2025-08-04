@@ -1,5 +1,5 @@
 
-.env
+modules/.env
 credentials.json
 output/
 temp/
