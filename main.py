@@ -21,7 +21,7 @@ from itertools import chain
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 # Load environment variables
-load_dotenv('.env')
+load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_variations(strings, num_variations=3, model="gpt-4", max_tokens=50):
@@ -41,7 +41,7 @@ Your job is to rewrite it with the same meaning and emotional intensity, but in 
 Rules:
 - Keep it short, punchy, and emotionally resonant.
 - No fluff, no storytelling, no intros.
-- Avoid forced slang like “babes” “slay” "yo", "sis" "vibe" or “vibes”.
+- Avoid forced slang like “babes” “slay” "yo", "sis" "vibe" "dope" "fam" "sick" or “vibes”.
 - Should not be cringe to read by Gen Z or Millenials.
 - Sound like a smart creator giving clear, helpful advice.
 - No quotation marks or explanations — just return the new line.
