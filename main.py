@@ -17,6 +17,10 @@ from openai import OpenAI
 import os
 from itertools import chain
 
+NUM_VARIATIONS = 1
+NUM_DATA_ROWS = 1
+
+
 # Load config
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
@@ -24,7 +28,7 @@ with open("config.yaml", "r") as f:
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_variations(strings, num_variations=3, model="gpt-4", max_tokens=50, prompt_template=None):
+def generate_variations(strings, num_variations, model="gpt-4", max_tokens=50, prompt_template=None):
     variation_buckets = [[] for _ in range(num_variations)]
 
     for original in strings:
@@ -280,7 +284,8 @@ def main():
     # Skip header row
     data_rows = sheet_rows[1:]
 
-    for index, row in enumerate(sheet_rows):
+    # for index, row in enumerate(sheet_rows):
+    for index, row in enumerate(sheet_rows[:NUM_DATA_ROWS]):
         if row:  # skip empty rows
 
              # Continue with rest of the script...
@@ -305,7 +310,7 @@ def main():
 
             sheet_id = '1O6lNd7gIEnI_K8GxNFYSUj9WVKtveU1mwWIVgL0g7J8'
             prompt_template = get_prompt_from_sheet(sheet_id)
-            CAROUSELS = generate_variations(SLIDE_TEXTS, 0, "gpt-4", 50, prompt_template)
+            CAROUSELS = generate_variations(SLIDE_TEXTS, NUM_VARIATIONS, "gpt-4", 50, prompt_template)
             # print(prompt_template)
             # print(CAROUSELS)
 
@@ -314,11 +319,11 @@ def main():
             # data_rows = sheet_rows[1:]
 
             test_texts.append(CAROUSELS)
-            if len(CAROUSELS) != 1:
+            if len(CAROUSELS) != NUM_VARIATIONS + 1:
                 print(f"variations not complete")
                 exit()
 
-            for i in range(len(CAROUSELS)):
+            for i in range(1, len(CAROUSELS)):
                 local_image_paths = []
 
                 print(f"Variation: {i + 1}")
