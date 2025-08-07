@@ -1,4 +1,3 @@
-
 name: Run Main Script
 
 on:
@@ -23,5 +22,6 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run main.py
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python main.py
-
