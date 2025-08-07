@@ -125,7 +125,7 @@ def download_font_from_drive(service, folder_id, temp_dir="temp"):
 def get_font_size(char_count, base_chars=80, base_size=80, min_size=60):
     ratio = base_chars / char_count if char_count > base_chars else 1
     return max(int(base_size * ratio), min_size)
-    
+
 def process_carousel(layout, image_paths, font_path, config, font_colors, slide_texts):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = f"temp/carousel_{timestamp}"
@@ -209,7 +209,17 @@ def process_carousel(layout, image_paths, font_path, config, font_colors, slide_
 
                     font_size -= 2
 
-                y_text = max(safe_top, (safe_top + safe_bottom - total_height) // 2)
+                # y_text = max(safe_top, (safe_top + safe_bottom - total_height) // 2)
+                # If this is every 4th image (iphone image), use fixed text position away from phone
+                if (i + 1) % 4 == 0:
+                    # Static position in top-left (adjust as needed)
+                    x_text = 80
+                    y_text = 100
+                    print(f"📌 Slide {i+1} is iPhone layout — using static position (x={x_text}, y={y_text})")
+                else:
+                    y_text = max(safe_top, (safe_top + safe_bottom - total_height) // 2)
+
+
 
                 fill_color = hex_to_rgb(font_colors[i] if i < len(font_colors) else "#FFFFFF")
                 for line in lines:
@@ -219,6 +229,7 @@ def process_carousel(layout, image_paths, font_path, config, font_colors, slide_
                     # x_text = max(margin, (width - text_width) // 2)
                     max_width = safe_right - safe_left
                     x_text = safe_left + (max_width - text_width) // 2
+                    line = line.replace('"', '').replace("'", "") 
                     img = draw_soft_glow_text(
                         img,
                         (x_text, y_text),
