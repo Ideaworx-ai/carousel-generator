@@ -21,11 +21,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install jq (for safe JSON decoding)
-        run: sudo apt-get update && sudo apt-get install -y jq
-
       - name: Write GOOGLE_CREDENTIALS to file
-        run: echo "${{ secrets.GOOGLE_CREDENTIALS }}" | jq '.' > credentials.json
+        run: printf "%s" "${{ secrets.GOOGLE_CREDENTIALS }}" > credentials.json
 
 
       - name: Run main.py
