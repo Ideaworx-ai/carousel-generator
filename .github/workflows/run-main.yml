@@ -24,12 +24,6 @@ jobs:
       - name: 🔍 Print secret presence (should not be blank or stars)
         run: echo "${{ secrets.GOOGLE_CREDENTIALS }}"
 
-      - name: 🔍 Debug credentials.json contents
-        run: |
-          echo "---- CREDENTIALS CONTENTS ----"
-          cat credentials.json
-          echo "-----------------------------
-
       - name: Write GOOGLE_CREDENTIALS to file
         run: printf "%s" "${{ secrets.GOOGLE_CREDENTIALS }}" > credentials.json
 
