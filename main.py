@@ -28,7 +28,7 @@ with open("config.yaml", "r") as f:
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_variations(strings, num_variations, model="gpt-4", max_tokens, prompt_template=None):
+def generate_variations(strings, num_variations, model="gpt-4", max_tokens=50, prompt_template=None):
     variation_buckets = [[] for _ in range(num_variations)]
 
     for original in strings:
