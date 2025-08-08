@@ -17,8 +17,8 @@ from openai import OpenAI
 import os
 from itertools import chain
 
-NUM_VARIATIONS = 1
-NUM_DATA_ROWS = 1
+NUM_VARIATIONS = 3
+NUM_DATA_ROWS = 10
 
 
 # Load config
