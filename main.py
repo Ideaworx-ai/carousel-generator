@@ -28,7 +28,7 @@ with open("config.yaml", "r") as f:
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_variations(strings, num_variations, model="gpt-4", max_tokens=50, prompt_template=None):
+def generate_variations(strings, num_variations, model="gpt-4", max_tokens, prompt_template=None):
     variation_buckets = [[] for _ in range(num_variations)]
 
     for original in strings:
@@ -310,7 +310,7 @@ def main():
 
             sheet_id = '1O6lNd7gIEnI_K8GxNFYSUj9WVKtveU1mwWIVgL0g7J8'
             prompt_template = get_prompt_from_sheet(sheet_id)
-            CAROUSELS = generate_variations(SLIDE_TEXTS, NUM_VARIATIONS, "gpt-4", 50, prompt_template)
+            CAROUSELS = generate_variations(SLIDE_TEXTS, NUM_VARIATIONS, "gpt-4", 100, prompt_template)
             # print(prompt_template)
             # print(CAROUSELS)
 
