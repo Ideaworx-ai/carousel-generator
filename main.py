@@ -18,7 +18,7 @@ import os
 from itertools import chain
 
 NUM_VARIATIONS = 3
-NUM_DATA_ROWS = 10
+NUM_DATA_ROWS = 1
 
 
 # Load config
@@ -28,30 +28,18 @@ with open("config.yaml", "r") as f:
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_variations(strings, num_variations, model="gpt-4", max_tokens=50, prompt_template=None):
+def generate_variations(non_hook_prompt_template, hook_prompt_template, strings, num_variations, model="gpt-4", max_tokens=50):
     variation_buckets = [[] for _ in range(num_variations)]
 
-    for original in strings:
+    for idx, original in enumerate(strings):
         generated = set()
 
         while len(generated) < num_variations:
-#             prompt = f"""
-# You're a Gen Z TikTok creator speaking to young women aged 18–30.
-
-# Take this phrase: "{original}"
-
-# Your job is to rewrite it with the same meaning and emotional intensity, but in a clean, confident TikTok-native tone — not corporate, but not cringe.
-
-# Rules:
-# - Keep it short, punchy, and emotionally resonant.
-# - No fluff, no storytelling, no intros.
-# - Avoid forced slang like “babes” “slay” "yo", "sis" "vibe" "dope" "fam" "sick" or “vibes”.
-# - Should not be cringe to read by Gen Z or Millenials.
-# - Sound like a smart creator giving clear, helpful advice.
-# - No quotation marks or explanations — just return the new line.
-# """
-
-            final_prompt = prompt_template.replace("{original}", original)
+            # Choose the right template
+            if idx == 0:
+                final_prompt = hook_prompt_template.replace("{original}", original)
+            else:
+                final_prompt = non_hook_prompt_template.replace("{original}", original)
 
             response = client.chat.completions.create(
                 model=model,
@@ -66,6 +54,9 @@ def generate_variations(strings, num_variations, model="gpt-4", max_tokens=50, p
         # Assign variations to their respective buckets
         for i, v in enumerate(list(generated)[:num_variations]):
             variation_buckets[i].append(v)
+        
+        print([strings])
+        print(variation_buckets)
 
     return [strings] + variation_buckets
 
@@ -94,7 +85,7 @@ GDRIVE_TIKTOK_ACCOUNT_FOLDER_IDS = {
     "CommentScout TikTok Account #4": "1ZIrLBAhn5bKcTw0J6tRWzBCSn9Zrgzw7"
 }
 
-def get_prompt_from_sheet(spreadsheet_id, range_name='Prompts!A2'):
+def get_prompt_from_sheet(spreadsheet_id, range_name):
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
     creds = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
     service = build('sheets', 'v4', credentials=creds)
@@ -309,8 +300,10 @@ def main():
             
 
             sheet_id = '1O6lNd7gIEnI_K8GxNFYSUj9WVKtveU1mwWIVgL0g7J8'
-            prompt_template = get_prompt_from_sheet(sheet_id)
-            CAROUSELS = generate_variations(SLIDE_TEXTS, NUM_VARIATIONS, "gpt-4", 100, prompt_template)
+            non_hook_prompt_template = get_prompt_from_sheet(sheet_id, 'Prompts!C2')
+            hook_prompt_template = get_prompt_from_sheet(sheet_id, 'Prompts!A2')
+
+            CAROUSELS = generate_variations(non_hook_prompt_template, hook_prompt_template, SLIDE_TEXTS, NUM_VARIATIONS, "gpt-4", 100)
             # print(prompt_template)
             # print(CAROUSELS)
 
