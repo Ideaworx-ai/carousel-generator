@@ -17,10 +17,123 @@ from openai import OpenAI
 import os
 from itertools import chain
 import gspread
+from decimal import Decimal
+from typing import Optional
 
 NUM_VARIATIONS = 1 # 3 is max for now as there are 4 folders
 NUM_DATA_ROWS = 2 # if 'all' then all rows in google sheet with slide texts are iterated
-TEMPERATURE=get_prompt_from_sheet(sheet_id, 'Prompts!G2')
+MODEL="gpt-4"
+
+class CostTracker:
+
+    def __init__(self):
+        self.total_prompt_tokens = 0
+        self.total_completion_tokens = 0
+        self.total_cached_prompt_tokens = 0  # if prompt caching is used
+        self.total_calls = 0
+        self.total_usd = Decimal("0")
+
+    def add(self, response, model_name: str):
+        self.total_calls += 1
+        usage = getattr(response, "usage", None)
+        if not usage:
+            return  # nothing to add
+
+        prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+
+        # Some responses include caching details
+        cached = 0
+        details = getattr(usage, "prompt_tokens_details", None)
+        if details and hasattr(details, "cached_tokens"):
+            cached = int(details.cached_tokens or 0)
+
+        self.total_prompt_tokens += prompt_tokens
+        self.total_completion_tokens += completion_tokens
+        self.total_cached_prompt_tokens += cached
+
+        rates = PRICES_PER_1K.get(model_name, None)
+        if not rates:
+            return  # unknown model rate, skip cost math to avoid wrong totals
+
+        # Split cached vs non cached prompt tokens when a cached rate exists
+        cached_rate: Optional[Decimal] = rates.get("cached_input")
+        if cached_rate is not None and cached > 0:
+            uncached_prompt = max(prompt_tokens - cached, 0)
+            cost_input = (Decimal(uncached_prompt) * rates["input"] +
+                          Decimal(cached) * cached_rate) / Decimal(1000)
+        else:
+            cost_input = (Decimal(prompt_tokens) * rates["input"]) / Decimal(1000)
+
+        cost_output = (Decimal(completion_tokens) * rates["output"]) / Decimal(1000)
+        self.total_usd += (cost_input + cost_output)
+
+    def summary(self) -> str:
+        return (
+            f"API calls: {self.total_calls}\n"
+            f"Prompt tokens: {self.total_prompt_tokens} "
+            f"(cached: {self.total_cached_prompt_tokens})\n"
+            f"Completion tokens: {self.total_completion_tokens}\n"
+            f"Total cost: ${self.total_usd.quantize(Decimal('0.0001'))} USD"
+        )
+
+COST = CostTracker()
+
+PRICES_PER_1K = {
+    "gpt-3.5-turbo": {
+        "input":  Decimal("0.0015"),   # $1.50 per 1M tokens
+        "output": Decimal("0.0020"),   # $2.00 per 1M tokens
+        "cached_input": None
+    },
+    "gpt-3.5-turbo-16k": {
+        "input":  Decimal("0.0030"),   # $3.00 per 1M
+        "output": Decimal("0.0040"),   # $4.00 per 1M
+        "cached_input": None
+    },
+    "gpt-3.5-turbo-0613": {
+        "input":  Decimal("0.0015"),
+        "output": Decimal("0.0020"),
+        "cached_input": None
+    },
+    # For classic davinci, curie, etc. if needed
+    "text-davinci-003": {
+        "input":  Decimal("0.02"),     # $20 per 1M
+        "output": Decimal("0.02"),
+        "cached_input": None
+    },
+    "text-curie-001": {
+        "input":  Decimal("0.002"),    # $2 per 1M
+        "output": Decimal("0.002"),
+        "cached_input": None
+    },
+    "text-babbage-001": {
+        "input":  Decimal("0.0005"),
+        "output": Decimal("0.0005"),
+        "cached_input": None
+    },
+    "text-ada-001": {
+        "input":  Decimal("0.0004"),
+        "output": Decimal("0.0004"),
+        "cached_input": None
+    },
+    # Your existing GPT-4 and GPT-4o entries below
+    "gpt-4": {
+        "input":  Decimal("0.03"),
+        "output": Decimal("0.06"),
+        "cached_input": None
+    },
+    "gpt-4o": {
+        "input":  Decimal("0.005"),
+        "output": Decimal("0.02"),
+        "cached_input": Decimal("0.0025")
+    },
+    "gpt-4o-mini": {
+        "input":  Decimal("0.0006"),
+        "output": Decimal("0.0024"),
+        "cached_input": Decimal("0.0003")
+    },
+}
+
 
 
 
@@ -31,27 +144,27 @@ with open("config.yaml", "r") as f:
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_caption(strings, prompt_template, model="gpt-4", max_tokens=50):
+def generate_caption(temperature, strings, prompt_template, max_tokens=50):
     # Join slides into a single text block
     slides_text = "\n".join(f"Slide {i+1}: {text}" for i, text in enumerate(strings))
     print('inside caption generator')
-    print(slides_text)
-    
+
     # Build the prompt
     prompt = prompt_template.replace("{slides_text}", slides_text)
 
     # Call OpenAI API
     response = client.chat.completions.create(
-        model=model,
+        model=MODEL,
         messages=[{"role": "user", "content": prompt}],
+        temperature=temperature,
         max_tokens=max_tokens,
-        temperature=TEMPERATURE
     )
 
     # Extract and return the caption text
+    COST.add(response, MODEL)  # <-- track cost
     return response.choices[0].message.content.strip()
 
-def generate_variations(non_hook_prompt_template, hook_prompt_template, strings, num_variations, model="gpt-4", max_tokens=50):
+def generate_variations(temperature, non_hook_prompt_template, hook_prompt_template, strings, num_variations, max_tokens=50):
     variation_buckets = [[] for _ in range(num_variations)]
 
     for idx, original in enumerate(strings):
@@ -65,11 +178,12 @@ def generate_variations(non_hook_prompt_template, hook_prompt_template, strings,
                 final_prompt = non_hook_prompt_template.replace("{original}", original)
 
             response = client.chat.completions.create(
-                model=model,
+                model=MODEL,
                 messages=[{"role": "user", "content": final_prompt}],
-                temperature=TEMPERATURE,
+                temperature=temperature,
                 max_tokens=max_tokens
             )
+            COST.add(response, MODEL)  # <-- track cost
 
             variation = response.choices[0].message.content.strip().replace('"', '')
             generated.add(variation)
@@ -133,16 +247,6 @@ def get_sheet_rows(spreadsheet_id, range_name):
 
     # Return all rows except the header
     return values[1:] if values else []
-
-# === USAGE ===
-# SPREADSHEET_ID = spreadsheet_id
-
-# RANGE_NAME = 'Sheet1'  # Change to match your sheet name
-
-# rows = get_sheet_rows(SPREADSHEET_ID, RANGE_NAME)
-# for row in rows:
-#     print(row)
-
 
 FONT_COLORS = ["#ffffff"]
 
@@ -303,7 +407,7 @@ def get_next_id():
     return f"#{next_id}"
 
 
-def add_carousel_to_gsheet(slide_texts, id, caption):
+def add_carousel_to_gsheet(slide_texts, id, caption, temperature, cost):
     # Authenticate using your service account file
     gc = gspread.service_account(filename='credentials.json')
 
@@ -320,17 +424,16 @@ def add_carousel_to_gsheet(slide_texts, id, caption):
     while len(row) < 7:  # Fill blanks until before column H
         row.append("")
     row.append(caption)
-    row.append(TEMPERATURE)
+    row.append(temperature)
     # Append row to the sheet
     worksheet.append_row(row, value_input_option='RAW')
 
 def main():
 
     test_texts = []
-
     sheet_id = '1O6lNd7gIEnI_K8GxNFYSUj9WVKtveU1mwWIVgL0g7J8'
     sheet_rows = get_sheet_rows(sheet_id, 'Sheet1')
-
+    temperature = float(get_prompt_from_sheet(sheet_id, 'Prompts!G2'))
 
     # Skip header row
     data_rows = sheet_rows[1:]
@@ -352,17 +455,12 @@ def main():
             os.makedirs(raw_dir, exist_ok=True)
             font_path = download_first_font_from_folder(FONTS_FOLDER_ID, temp_dir)
 
-
-            
-
             SLIDE_TEXTS = []
             for array in row:
                 slide_text = array.strip()  # get the first column
                 SLIDE_TEXTS.append(slide_text)
             print(f"{SLIDE_TEXTS}")
 
-            # CAROUSELS = generate_variations(SLIDE_TEXTS, 3)
-            
 
             sheet_id = '1O6lNd7gIEnI_K8GxNFYSUj9WVKtveU1mwWIVgL0g7J8'
             non_hook_prompt_template = get_prompt_from_sheet(sheet_id, 'Prompts!C2')
@@ -370,13 +468,8 @@ def main():
             caption_template = get_prompt_from_sheet(sheet_id, 'Prompts!E2')
 
 
-            CAROUSELS = generate_variations(non_hook_prompt_template, hook_prompt_template, SLIDE_TEXTS, NUM_VARIATIONS, "gpt-4", 100)
-            CAPTION = generate_caption(SLIDE_TEXTS, caption_template)
-            # print('CAPTION')
-            # print(CAPTION)
-
-            # exit()
-            # strings, prompt_template, model="gpt-4", max_tokens=50
+            CAROUSELS = generate_variations(temperature, non_hook_prompt_template, hook_prompt_template, SLIDE_TEXTS, NUM_VARIATIONS, 100)
+            CAPTION = generate_caption(temperature, SLIDE_TEXTS, caption_template)
 
             test_texts.append(CAROUSELS)
             if len(CAROUSELS) != NUM_VARIATIONS + 1:
@@ -400,7 +493,6 @@ def main():
                 # Access value by index, e.g., index 2
                 parent_folder_id = folder_ids[i]
 
-               
 
                 for j, folder_id in enumerate(FOLDER_IDS):
                     print(f"Folder: {j + 1}")
@@ -429,8 +521,9 @@ def main():
                     FONT_COLORS,
                     slide_texts
                 )
+                cost = 0
                 upload_images_to_drive(destination_folder_id, output_dir)
-                add_carousel_to_gsheet(slide_texts, f"{next_id}", CAPTION)
+                add_carousel_to_gsheet(slide_texts, f"{next_id}", CAPTION, temperature, cost)
 
                 print(f"✅ Uploading Image: {j+1} to folder: {i+1}")
 
@@ -440,12 +533,9 @@ def main():
   
 if __name__ == "__main__":
     os.makedirs("temp", exist_ok=True)
-    main()
-    # get_next_id()
-    # slide_texts = ['Three months of regular posting taught me some unexpected lessons...', "Show up, stay true to yourself, and connect with other creators. Don't just swipe by—those thoughtful comments you drop can be a real pick-me-up for someone else, and TikTok pays attention. The more you interact, the more visibility your own posts get.", "Earning money can absolutely happen, but don't plunge into it like a full-time job right away. Keep it light, keep it regular, and before you know it, that fun little sideline might just be paying for your skincare routine.", "No need to fret about your next post, there are supportive tools out there. They can identify what's trending within your niche and give you daily inspiration – it's like having your own personal content advisor always available.", "Don't underestimate your contribution, however little it seems. Continue cheering, continue sharing. Everything you do adds up."]
-    # caption = "When life throws a curveball, remember, you have the power to turn things around. Don't let those bumps on the road define you; instead, let them inspire you to grow stronger. Seize the day, ladies!"
-    # id = '#1'
-    # add_carousel_to_gsheet(slide_texts, id, caption)
-    # import shutil
-    # shutil.rmtree(raw_dir, ignore_errors=True)
+    try:
+        main()
+    finally:
+        print("\n=== OpenAI cost summary ===")
+        print(COST.summary())
 
