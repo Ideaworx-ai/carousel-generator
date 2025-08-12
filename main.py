@@ -425,6 +425,8 @@ def add_carousel_to_gsheet(slide_texts, id, caption, temperature, cost):
         row.append("")
     row.append(caption)
     row.append(temperature)
+    row.append(cost)
+
     # Append row to the sheet
     worksheet.append_row(row, value_input_option='RAW')
 
