@@ -20,7 +20,8 @@ import gspread
 
 NUM_VARIATIONS = 1 # 3 is max for now as there are 4 folders
 NUM_DATA_ROWS = 2 # if 'all' then all rows in google sheet with slide texts are iterated
-TEMPERATURE=0.2
+TEMPERATURE=get_prompt_from_sheet(sheet_id, 'Prompts!G2')
+
 
 
 # Load config
