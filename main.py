@@ -18,8 +18,9 @@ import os
 from itertools import chain
 import gspread
 
-NUM_VARIATIONS = 3 # 3 is max for now as there are 4 folders
-NUM_DATA_ROWS = 'all' # if 'all' then all rows in google sheet with slide texts are iterated
+NUM_VARIATIONS = 1 # 3 is max for now as there are 4 folders
+NUM_DATA_ROWS = 2 # if 'all' then all rows in google sheet with slide texts are iterated
+TEMPERATURE=0.2
 
 
 # Load config
@@ -43,7 +44,7 @@ def generate_caption(strings, prompt_template, model="gpt-4", max_tokens=50):
         model=model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
-        temperature=0.8
+        temperature=TEMPERATURE
     )
 
     # Extract and return the caption text
@@ -65,7 +66,7 @@ def generate_variations(non_hook_prompt_template, hook_prompt_template, strings,
             response = client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": final_prompt}],
-                temperature=0.9,
+                temperature=TEMPERATURE,
                 max_tokens=max_tokens
             )
 
@@ -298,7 +299,7 @@ def get_next_id():
 
     print(next_id)
 
-    return f"{next_id}"
+    return f"#{next_id}"
 
 
 def add_carousel_to_gsheet(slide_texts, id, caption):
@@ -318,7 +319,7 @@ def add_carousel_to_gsheet(slide_texts, id, caption):
     while len(row) < 7:  # Fill blanks until before column H
         row.append("")
     row.append(caption)
-
+    row.append(TEMPERATURE)
     # Append row to the sheet
     worksheet.append_row(row, value_input_option='RAW')
 
