@@ -21,7 +21,7 @@ from decimal import Decimal
 from typing import Optional
 
 NUM_VARIATIONS = 1 # 3 is max for now as there are 4 folders
-NUM_DATA_ROWS = 2 # if 'all' then all rows in google sheet with slide texts are iterated
+NUM_DATA_ROWS = 'all' # if 'all' then all rows in google sheet with slide texts are iterated
 MODEL="gpt-4"
 
 class CostTracker:
@@ -146,11 +146,17 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_caption(temperature, strings, prompt_template, max_tokens=50):
     # Join slides into a single text block
+
     slides_text = "\n".join(f"Slide {i+1}: {text}" for i, text in enumerate(strings))
-    print('inside caption generator')
+    print(f"{slides_text}")
+
+    print('inside caption generator ################### %$')
 
     # Build the prompt
     prompt = prompt_template.replace("{slides_text}", slides_text)
+
+    # print(prompt)
+    # exit()
 
     # Call OpenAI API
     response = client.chat.completions.create(
@@ -472,6 +478,7 @@ def main():
 
             CAROUSELS = generate_variations(temperature, non_hook_prompt_template, hook_prompt_template, SLIDE_TEXTS, NUM_VARIATIONS, 100)
             CAPTION = generate_caption(temperature, SLIDE_TEXTS, caption_template,150)
+      
 
             test_texts.append(CAROUSELS)
             if len(CAROUSELS) != NUM_VARIATIONS + 1:
