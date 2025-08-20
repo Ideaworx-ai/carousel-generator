@@ -4,3 +4,5 @@ credentials.json
 output/
 temp/
 
+temp/
+__pycache__/
