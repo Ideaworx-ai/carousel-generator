@@ -471,7 +471,7 @@ def main():
 
 
             CAROUSELS = generate_variations(temperature, non_hook_prompt_template, hook_prompt_template, SLIDE_TEXTS, NUM_VARIATIONS, 100)
-            CAPTION = generate_caption(temperature, SLIDE_TEXTS, caption_template)
+            CAPTION = generate_caption(temperature, SLIDE_TEXTS, caption_template,150)
 
             test_texts.append(CAROUSELS)
             if len(CAROUSELS) != NUM_VARIATIONS + 1:
